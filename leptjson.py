@@ -7,6 +7,74 @@ JSON_SPACE_CHARACTERS_LIST = ' \t\n\r'
 mapping = {'"': '"', '\\': '\\', '/': '/', 'b': '\b', 'f': '\f', 'n': '\n', 'r': '\r', 't': '\t'}
 
 
+class InputStream(object):
+    def __init__(self, input: str):
+        self._pos = 0
+        self._line = 1
+        self._col = 0
+        self._input = input
+
+    def next(self) -> str:
+        try:
+            ch = self._input[self._pos]
+        except IndexError:
+            ch = ""
+        finally:
+            self._pos += 1
+            if ch == "\n":
+                self._line += 1
+                self._col = 0
+            else:
+                self._col += 1
+            return ch
+
+    def peek(self) -> str:
+        try:
+            return self._input[self._pos]
+        except IndexError:
+            return ""
+
+    def eof(self) -> bool:
+        return self.peek() == ""
+
+    def croak(self, msg: str):
+        raise Exception(msg + " (" + str(self._line) + ":" + str(self._col) + ")")
+
+class JsonTokenStream(object):
+    def __init__(self, input_stream: InputStream):
+        self._input_stream = input_stream
+        self.current = None
+
+    def read_next(self):
+        pass
+
+    def peek(self):
+        if self.current:
+            return self.current
+        self.current = self.read_next()
+        return self.current
+
+    def next(self):
+        token = self.current
+        self.current = None
+        if token:
+            return token
+        return self.read_next()
+
+    def __iter__(self):
+        while True:
+            token = self.read_next()
+            if token is not None:
+                yield token
+            else:
+                break
+
+    def eof(self) -> bool:
+        return self.peek() is None
+
+    def croak(self, msg):
+        self._input_stream.croak(msg)
+
 class LeptJsonParseError(Exception):
     def __init__(self, msg):
         super(LeptJsonParseError, self).__init__(msg)
@@ -169,6 +237,7 @@ def _lept_parse_array(json_string, current_index, string_length):
             raise LeptJsonParseError("lept parse miss comma or square bracket")
     raise LeptJsonParseError("lept parse miss comma or square bracket")
 
+
 # @profile
 def _lept_parse_string(json_string, current_index, string_length):
     current_index += 1
@@ -321,6 +390,7 @@ def _parse_exp(json_string, current_index, string_length):
             current_index += 1
         return current_index
     raise LeptJsonParseError("lept parse invalid value")
+
 
 loads = lept_parse
 dumps = lept_stringify
