@@ -1,5 +1,6 @@
 #!/usr/local/bin/python3
 # encoding: utf-8
+import string
 
 POSITIVE_INTEGERS_LIST = '123456789'
 NONNEGATIVE_INTEGERS_LIST = '0123456789'
@@ -9,6 +10,8 @@ mapping = {'"': '"', '\\': '\\', '/': '/', 'b': '\b', 'f': '\f', 'n': '\n', 'r':
 
 class InputStream(object):
     def __init__(self, input: str):
+        if not input:
+            raise LeptJsonParseError("lept parse expect value")
         self._pos = 0
         self._line = 1
         self._col = 0
@@ -40,13 +43,222 @@ class InputStream(object):
     def croak(self, msg: str):
         raise Exception(msg + " (" + str(self._line) + ":" + str(self._col) + ")")
 
+
 class JsonTokenStream(object):
+    KEYWORDS = set("true false null".split())
+    ID_START = set(string.ascii_letters)
+    ID = set(string.ascii_letters + string.digits + 'λ_?!-<>=')
+    OP = set("+-*/%=&|<>!")
+    PUNC = set(",;:{}[]")
+    WHITESPACE = set(" \t\n")
+
     def __init__(self, input_stream: InputStream):
         self._input_stream = input_stream
         self.current = None
 
-    def read_next(self):
-        pass
+    def is_keyword(self, word: str) -> bool:
+        return word in self.KEYWORDS
+
+    def is_digit(self, ch: str) -> bool:
+        return ch.isdigit()
+
+    def is_id_start(self, ch: str) -> bool:
+        return ch in self.ID_START
+
+    def is_id(self, ch: str) -> bool:
+        return ch in self.ID
+
+    def is_whitespace(self, ch: str) -> bool:
+        return ch in JSON_SPACE_CHARACTERS_LIST
+
+    def is_punc(self, ch: str) -> bool:
+        return ch in self.PUNC
+
+    def is_positive_integer(self, ch: str) -> bool:
+        return ch in POSITIVE_INTEGERS_LIST
+
+    def is_nonnegative_integer(self, ch: str) -> bool:
+        return ch in NONNEGATIVE_INTEGERS_LIST
+
+    def read_ident(self) -> dict:
+        id = self.read_while(self.is_id)
+        if id == 'null':
+            return {
+                'type': 'null',
+                'value': None,
+            }
+        if id == 'true':
+            return {
+                'type': 'bool',
+                'value': True,
+            }
+        if id =='false':
+            return {
+                'type': 'bool',
+                'value': False,
+            }
+        else:
+            return {
+                'type': 'invalid',
+                'value': id,
+            }
+        # raise LeptJsonParseError("lept parse invalid value")
+    def parse_hex4(self):
+        return self.str2hex(4)
+
+    def str2hex(self, hex_length):
+        assert hex_length >= 0
+        result = 0
+        power = 16
+        for i in range(hex_length):
+            if self._input_stream.eof():
+                raise LeptJsonParseError("lept parse invalid unicode hex")
+            ch = self._input_stream.next()
+            ch_ord = ord(ch)
+            if ord('F') >= ch_ord >= ord('A'):
+                result = result * power + (ch_ord - ord('A') + 10)
+            elif ord('9') >= ch_ord >= ord('0'):
+                result = result * power + (ch_ord - ord('0'))
+            elif ord('f') >= ch_ord >= ord('a'):
+                result = result * power + (ch_ord - ord('a') + 10)
+            else:
+                raise LeptJsonParseError("lept parse invalid unicode hex")
+        return result
+
+    def read_string(self) -> dict:
+        self._input_stream.next()
+        l = []
+        while True:
+            if self._input_stream.eof():
+                raise LeptJsonParseError("lept parse miss quotation mark")
+            ch = self._input_stream.next()
+            if ord(ch) >= 32 and ch != '"' and ch != '\\':
+                l.append(ch)
+            elif ch == '"':
+                return {'type': 'str', 'value': ''.join(l)}
+
+            elif ch == '\\':
+                if self._input_stream.eof():
+                    raise LeptJsonParseError("lept parse invalid string escape")
+                ch = self._input_stream.next()
+                if ch == '"':
+                    l.append('"')
+                elif ch == '\\':
+                    l.append('\\')
+                elif ch == '/':
+                    l.append('/')
+                elif ch == 'b':
+                    l.append('\b')
+                elif ch == 'f':
+                    l.append('\f')
+                elif ch == 'n':
+                    l.append('\n')
+                elif ch == 'r':
+                    l.append('\r')
+                elif ch == 't':
+                    l.append('\t')
+                elif ch == 'u':
+                    code_point = self.parse_hex4()
+                    if 0xdbff >= code_point >= 0xd800:
+                        ch1 = self._input_stream.next()
+                        ch2 = self._input_stream.next()
+                        if ch1 != '\\' or ch2 != 'u':
+                            raise LeptJsonParseError("lept parse invalid unicode surrogate")
+                        low_surrogate = self.parse_hex4()
+                        if 0xdfff >= low_surrogate >= 0xdc00:
+                            code_point = 0x10000 + (code_point - 0xd800) * 0x400 + (low_surrogate - 0xdc00)
+                        else:
+                            raise LeptJsonParseError("lept parse invalid unicode surrogate")
+                    l.append(chr(code_point))
+                    continue
+                else:
+                    raise LeptJsonParseError("lept parse invalid string escape")
+            elif ord(ch) < 32:
+                raise LeptJsonParseError("lept parse invalid string char")
+
+    def read_number(self) -> dict:
+        negative = self.read_number_negative()
+        integer = self.read_number_int()
+        frac = self.read_number_frac()
+        exp = self.read_number_exp()
+        number_string = negative + integer + frac + exp
+        result = float(number_string)
+        if result == float("Inf") or result == float("-Inf"):
+            raise LeptJsonParseError("lept parse number too big")
+        return {
+            'type': 'num',
+            'value': result,
+        }
+
+    def read_number_negative(self):
+        ch = self._input_stream.peek()
+        if ch == '-':
+            return self._input_stream.next()
+        else:
+            return ''
+
+    def read_number_int(self):
+        if self._input_stream.eof():
+            raise LeptJsonParseError("lept parse invalid value")
+        ch = self._input_stream.peek()
+        if ch == '0':
+            return self._input_stream.next()
+        if self.is_positive_integer(ch):
+            l = self.read_while(self.is_nonnegative_integer)
+            return ''.join(l)
+        raise LeptJsonParseError("lept parse invalid value")
+
+    def read_number_frac(self):
+        if self._input_stream.eof() or self._input_stream.peek() != '.':
+            return ''
+        self._input_stream.next()
+        ch = self._input_stream.peek()
+        if (not self._input_stream.eof()) and self.is_nonnegative_integer(ch):
+            result = self.read_while(self.is_nonnegative_integer)
+            return '.' + ''.join(result)
+        raise LeptJsonParseError("lept parse invalid value")
+
+    def read_number_exp(self):
+        ch = self._input_stream.peek()
+        if self._input_stream.eof() or (ch != 'e' and ch != 'E'):
+            return ''
+        result = 'e'
+        self._input_stream.next()
+        if self._input_stream.eof():
+            raise LeptJsonParseError("lept parse invalid value")
+        ch = self._input_stream.peek()
+        if ch == '-' or ch == '+':
+            result = 'e' + self._input_stream.next()
+
+        if self._input_stream.eof():
+            raise LeptJsonParseError("lept parse invalid value")
+        if self.is_nonnegative_integer(self._input_stream.peek()):
+            return result + ''.join(self.read_while(self.is_nonnegative_integer))
+        raise LeptJsonParseError("lept parse invalid value")
+
+    def read_while(self, predicate) -> str:
+        l = []
+        while (not self._input_stream.eof()) and predicate(self._input_stream.peek()):
+            l.append(self._input_stream.next())
+        return ''.join(l)
+
+    def read_next(self) -> dict:
+        self.read_while(self.is_whitespace)
+        if self._input_stream.eof():
+            return {}
+        ch = self._input_stream.peek()
+        if self.is_id_start(ch):
+            return self.read_ident()
+        if ch == '"':
+            return self.read_string()
+        if self.is_punc(ch):
+            return {
+                'type': 'punc',
+                'value': self._input_stream.next()
+            }
+        # if self.is_digit(ch):
+        return self.read_number()
+        # self._input_stream.croak("Can't handle character: {}".format(ch))
 
     def peek(self):
         if self.current:
@@ -70,15 +282,133 @@ class JsonTokenStream(object):
                 break
 
     def eof(self) -> bool:
-        return self.peek() is None
+        return not self.peek()
 
     def croak(self, msg):
         self._input_stream.croak(msg)
+
 
 class LeptJsonParseError(Exception):
     def __init__(self, msg):
         super(LeptJsonParseError, self).__init__(msg)
         self.msg = msg
+
+
+class JsonParser(object):
+    PRECEDENCE = {
+        "=": 1,
+        "||": 2,
+        "&&": 3,
+        "<": 7, ">": 7, "<=": 7, ">=": 7, "==": 7, "!=": 7,
+        "+": 10, "-": 10,
+        "*": 20, "/": 20, "%": 20,
+    }
+
+    def __init__(self, json_token_stream: JsonTokenStream):
+        self.json_token_stream = json_token_stream
+
+    def skip_punc(self, ch: str, msg: str = '') -> None:
+        if self.is_punc(ch):
+            self.json_token_stream.next()
+        else:
+            raise LeptJsonParseError(msg)
+
+    def is_bool(self) -> bool:
+        return self.judge_type('bool')
+
+    def is_null(self) -> bool:
+        return self.judge_type('null')
+
+    def is_punc(self, ch: str) -> bool:
+        return self.judge_type_and_value('punc', ch)
+
+    def is_num(self) -> bool:
+        return self.judge_type('num')
+
+    def is_str(self) -> bool:
+        return self.judge_type('str')
+
+    def judge_type(self, type: str) -> bool:
+        token = self.json_token_stream.peek()
+        return token and token['type'] == type
+
+    def judge_type_and_value(self, type: str, value: str) -> bool:
+        token = self.json_token_stream.peek()
+        return token and token['type'] == type and token['value'] == value
+
+    def delimited(self, start: str, stop: str, separator: str, parser, skip_msg:str='', item_msg:str='') -> list:
+        a = []
+        first = True
+        self.skip_punc(start)
+        while not self.json_token_stream.eof():
+            if self.is_punc(stop):
+                break
+            if first:
+                first = False
+            else:
+                self.skip_punc(separator, skip_msg)
+            if self.is_punc(stop):
+                break
+            a.append(parser(item_msg))
+        self.skip_punc(stop, skip_msg)
+        return a
+
+    def parse_toplevel(self) -> object:
+        result = self.parse_token()
+        if self.json_token_stream.eof():
+            return result
+        raise LeptJsonParseError("lept parse root not singular")
+
+    def parse_token(self, msg:str='') -> object:
+        if self.json_token_stream.eof():
+            raise LeptJsonParseError("lept parse expect value")
+        if self.is_bool():
+            return self.parse_bool()
+        if self.is_null():
+            return self.parse_null()
+        if self.is_num():
+            return self.parse_num()
+        if self.is_str():
+            return self.parse_str()
+        if self.is_punc('['):
+            return self.parse_array()
+        if self.is_punc('{'):
+            return self.parse_map()
+        raise LeptJsonParseError("lept parse invalid value")
+
+    def parse_bool(self) -> bool:
+        return self.extract_next_token_value()
+
+    def parse_null(self) -> None:
+        return self.extract_next_token_value()
+
+    def parse_num(self) -> float:
+        return self.extract_next_token_value()
+
+    def parse_str(self) -> str:
+        return self.extract_next_token_value()
+
+    def extract_next_token_value(self) -> object:
+        return self.json_token_stream.next()['value']
+
+    def parse_array(self):
+        return self.delimited('[', ']', ',', self.parse_token, skip_msg='lept parse miss comma or square bracket')
+
+    def parse_map(self):
+        def parser(msg:str):
+            if self.is_str():
+                key = self.json_token_stream.next()['value']
+            else:
+                raise LeptJsonParseError("lept parse miss key")
+            self.skip_punc(':', 'lept parse miss colon')
+            value = self.parse_token()
+            return key, value
+
+        return dict(self.delimited('{', '}', ',', parser, 'lept parse miss comma or curly bracket'
+, "lept parse miss key"))
+
+    def unexpected(self):
+        self.json_token_stream.croak('Unexpected token: ' + str(self.json_token_stream.peek()))
 
 
 def lept_parse(json_string):
@@ -392,6 +722,7 @@ def _parse_exp(json_string, current_index, string_length):
     raise LeptJsonParseError("lept parse invalid value")
 
 
+lept_parse = lambda json_string: JsonParser(JsonTokenStream(InputStream(json_string))).parse_toplevel()
 loads = lept_parse
 dumps = lept_stringify
 if __name__ == '__main__':
