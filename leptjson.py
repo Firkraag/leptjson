@@ -53,7 +53,8 @@ def lept_stringify(obj):
                 l.append('\\r')
             elif char_ord == 0x09:
                 l.append('\\t')
-            elif (0x20 <= char_ord <= 0x21) or (0x23 <= char_ord <= 0x5b) or (0x5d <= char_ord <= 0x10ffff):
+            elif (0x20 <= char_ord <= 0x21) or (0x23 <= char_ord <= 0x5b) or (
+                    0x5d <= char_ord <= 0x10ffff):
                 l.append(char)
             elif char_ord < 0x20:
                 l.append('\\u{0:04x}'.format(char_ord))
@@ -81,18 +82,9 @@ def lept_stringify(obj):
         return ''.join(l)
 
 
-#
-#
-# def _hex2str(hex):
-#     result = []
-#     for _ in range(4):
-#         result.append(str(hex % 16))
-#         hex = hex // 16
-#     return ''.join(reversed(result))
-#
-
-def _lept_parse_whitespace(json_string, current_index, string_length):
-    while current_index < string_length and json_string[current_index] in JSON_SPACE_CHARACTERS_LIST:
+def _lept_parse_whitespace(json_string:str, current_index:int, string_length):
+    while current_index < string_length and json_string[
+        current_index] in JSON_SPACE_CHARACTERS_LIST:
         current_index += 1
     return current_index
 
@@ -140,7 +132,8 @@ def _lept_parse_object(json_string, current_index, string_length):
         value, current_index = _lept_parse_value(json_string, current_index, string_length)
         result[key] = value
         current_index = _lept_parse_whitespace(json_string, current_index, string_length)
-        if current_index >= string_length or (json_string[current_index] != ',' and json_string[current_index] != '}'):
+        if current_index >= string_length or (
+                json_string[current_index] != ',' and json_string[current_index] != '}'):
             raise LeptJsonParseError("lept parse miss comma or curly bracket")
         if json_string[current_index] == '}':
             return result, current_index + 1
@@ -168,6 +161,7 @@ def _lept_parse_array(json_string, current_index, string_length):
         else:
             raise LeptJsonParseError("lept parse miss comma or square bracket")
     raise LeptJsonParseError("lept parse miss comma or square bracket")
+
 
 # @profile
 def _lept_parse_string(json_string, current_index, string_length):
@@ -209,15 +203,19 @@ def _lept_parse_string(json_string, current_index, string_length):
             elif current_element == 't':
                 l.append('\t')
             elif current_element == 'u':
-                code_point, current_index = _lept_parse_hex4(json_string, current_index + 1, string_length)
+                code_point, current_index = _lept_parse_hex4(json_string, current_index + 1,
+                                                             string_length)
                 if 0xdbff >= code_point >= 0xd800:
                     if current_index + 1 >= string_length or (
-                                    json_string[current_index] != '\\' or json_string[current_index + 1] != 'u'):
+                            json_string[current_index] != '\\' or json_string[
+                        current_index + 1] != 'u'):
                         raise LeptJsonParseError("lept parse invalid unicode surrogate")
                     current_index += 2
-                    low_surrogate, current_index = _lept_parse_hex4(json_string, current_index, string_length)
+                    low_surrogate, current_index = _lept_parse_hex4(json_string, current_index,
+                                                                    string_length)
                     if 0xdfff >= low_surrogate >= 0xdc00:
-                        code_point = 0x10000 + (code_point - 0xd800) * 0x400 + (low_surrogate - 0xdc00)
+                        code_point = 0x10000 + (code_point - 0xd800) * 0x400 + (
+                                low_surrogate - 0xdc00)
                     else:
                         raise LeptJsonParseError("lept parse invalid unicode surrogate")
                 l.append(chr(code_point))
@@ -289,7 +287,8 @@ def _parse_int(json_string, current_index, string_length):
     if json_string[current_index] == '0':
         return current_index + 1
     if json_string[current_index] in POSITIVE_INTEGERS_LIST:
-        while current_index < string_length and json_string[current_index] in NONNEGATIVE_INTEGERS_LIST:
+        while current_index < string_length and json_string[
+            current_index] in NONNEGATIVE_INTEGERS_LIST:
             current_index += 1
         return current_index
     raise LeptJsonParseError("lept parse invalid value")
@@ -300,14 +299,16 @@ def _parse_frac(json_string, current_index, string_length):
         return current_index
     current_index += 1
     if current_index < string_length and json_string[current_index] in NONNEGATIVE_INTEGERS_LIST:
-        while current_index < string_length and json_string[current_index] in NONNEGATIVE_INTEGERS_LIST:
+        while current_index < string_length and json_string[
+            current_index] in NONNEGATIVE_INTEGERS_LIST:
             current_index += 1
         return current_index
     raise LeptJsonParseError("lept parse invalid value")
 
 
 def _parse_exp(json_string, current_index, string_length):
-    if current_index >= string_length or (json_string[current_index] != 'e' and json_string[current_index] != 'E'):
+    if current_index >= string_length or (
+            json_string[current_index] != 'e' and json_string[current_index] != 'E'):
         return current_index
     current_index += 1
     if current_index >= string_length:
@@ -317,10 +318,12 @@ def _parse_exp(json_string, current_index, string_length):
     if current_index >= string_length:
         raise LeptJsonParseError("lept parse invalid value")
     if current_index < string_length and json_string[current_index] in NONNEGATIVE_INTEGERS_LIST:
-        while current_index < string_length and json_string[current_index] in NONNEGATIVE_INTEGERS_LIST:
+        while current_index < string_length and json_string[
+            current_index] in NONNEGATIVE_INTEGERS_LIST:
             current_index += 1
         return current_index
     raise LeptJsonParseError("lept parse invalid value")
+
 
 loads = lept_parse
 dumps = lept_stringify
