@@ -2,18 +2,18 @@
 # coding=utf-8
 
 import unittest
-from leptjson import lept_parse, _LeptJsonParseError, lept_stringify
+from leptjson import parse, _LeptJsonParseError, stringify
 
 
 class LeptJsonTest(unittest.TestCase):
     def test_null(self):
-        self.assertTrue(lept_parse("null") is None)
+        self.assertTrue(parse("null") is None)
 
     def test_parse_true(self):
-        self.assertTrue(lept_parse("true"))
+        self.assertTrue(parse("true"))
 
     def test_parse_false(self):
-        self.assertFalse(lept_parse("false"))
+        self.assertFalse(parse("false"))
 
     def test_parse_expect_value(self):
         self.exception("", "lept parse expect value")
@@ -38,51 +38,51 @@ class LeptJsonTest(unittest.TestCase):
         self.exception("0x123", "lept parse root not singular")
 
     def test_parse_number(self):
-        self.assertEqual(0, lept_parse("0"))
-        self.assertEqual(0.0, lept_parse("0"))
-        self.assertEqual(0.0, lept_parse("-0"))
-        self.assertEqual(0.0, lept_parse("-0.0"))
-        self.assertEqual(1.0, lept_parse("1"))
-        self.assertEqual(-1.0, lept_parse("-1"))
-        self.assertEqual(1.5, lept_parse("1.5"))
-        self.assertEqual(-1.5, lept_parse("-1.5"))
-        self.assertEqual(3.1416, lept_parse("3.1416"))
-        self.assertEqual(1E10, lept_parse("1E10"))
-        self.assertEqual(1e10, lept_parse("1e10"))
-        self.assertEqual(1E+10, lept_parse("1E+10"))
-        self.assertEqual(1E-10, lept_parse("1E-10"))
-        self.assertEqual(-1E10, lept_parse("-1E10"))
-        self.assertEqual(-1e10, lept_parse("-1e10"))
-        self.assertEqual(-1E+10, lept_parse("-1E+10"))
-        self.assertEqual(-1E-10, lept_parse("-1E-10"))
-        self.assertEqual(1.234E+10, lept_parse("1.234E+10"))
-        self.assertEqual(1.234E-10, lept_parse("1.234E-10"))
-        self.assertEqual(0.0, lept_parse("1e-10000"))
-        self.assertEqual(1.0000000000000002, lept_parse("1.0000000000000002"))
-        self.assertEqual(4.9406564584124654e-324, lept_parse("4.9406564584124654e-324"))
-        self.assertEqual(-4.9406564584124654e-324, lept_parse("-4.9406564584124654e-324"))
-        self.assertEqual(2.2250738585072009e-308, lept_parse("2.2250738585072009e-308"))
-        self.assertEqual(-2.2250738585072009e-308, lept_parse("-2.2250738585072009e-308"))
-        self.assertEqual(2.2250738585072014e-308, lept_parse("2.2250738585072014e-308"))
-        self.assertEqual(-2.2250738585072014e-308, lept_parse("-2.2250738585072014e-308"))
-        self.assertEqual(1.7976931348623157e+308, lept_parse("1.7976931348623157e+308"))
-        self.assertEqual(-1.7976931348623157e+308, lept_parse("-1.7976931348623157e+308"))
+        self.assertEqual(0, parse("0"))
+        self.assertEqual(0.0, parse("0"))
+        self.assertEqual(0.0, parse("-0"))
+        self.assertEqual(0.0, parse("-0.0"))
+        self.assertEqual(1.0, parse("1"))
+        self.assertEqual(-1.0, parse("-1"))
+        self.assertEqual(1.5, parse("1.5"))
+        self.assertEqual(-1.5, parse("-1.5"))
+        self.assertEqual(3.1416, parse("3.1416"))
+        self.assertEqual(1E10, parse("1E10"))
+        self.assertEqual(1e10, parse("1e10"))
+        self.assertEqual(1E+10, parse("1E+10"))
+        self.assertEqual(1E-10, parse("1E-10"))
+        self.assertEqual(-1E10, parse("-1E10"))
+        self.assertEqual(-1e10, parse("-1e10"))
+        self.assertEqual(-1E+10, parse("-1E+10"))
+        self.assertEqual(-1E-10, parse("-1E-10"))
+        self.assertEqual(1.234E+10, parse("1.234E+10"))
+        self.assertEqual(1.234E-10, parse("1.234E-10"))
+        self.assertEqual(0.0, parse("1e-10000"))
+        self.assertEqual(1.0000000000000002, parse("1.0000000000000002"))
+        self.assertEqual(4.9406564584124654e-324, parse("4.9406564584124654e-324"))
+        self.assertEqual(-4.9406564584124654e-324, parse("-4.9406564584124654e-324"))
+        self.assertEqual(2.2250738585072009e-308, parse("2.2250738585072009e-308"))
+        self.assertEqual(-2.2250738585072009e-308, parse("-2.2250738585072009e-308"))
+        self.assertEqual(2.2250738585072014e-308, parse("2.2250738585072014e-308"))
+        self.assertEqual(-2.2250738585072014e-308, parse("-2.2250738585072014e-308"))
+        self.assertEqual(1.7976931348623157e+308, parse("1.7976931348623157e+308"))
+        self.assertEqual(-1.7976931348623157e+308, parse("-1.7976931348623157e+308"))
 
     def test_parse_number_too_big(self):
         self.exception("1e309", "lept parse number too big")
         self.exception("-1e309", "lept parse number too big")
 
     def test_parse_string(self):
-        self.assertEqual("", lept_parse("\"\""))
-        self.assertEqual("Hello", lept_parse("\"Hello\""))
-        self.assertEqual("Hello\nWorld", lept_parse("\"Hello\\nWorld\""))
-        self.assertEqual("\" \\ / \b \f \n \r \t", lept_parse("\"\\\" \\\\ \\/ \\b \\f \\n \\r \\t\""))
-        self.assertEqual("\\\\", lept_parse("\"\\\\\\\\\""))
-        self.assertEqual("Hello\0World", lept_parse("\"Hello\\u0000World\""))
-        self.assertEqual("\x24", lept_parse("\"\\u0024\""))
-        self.assertEqual('\u00a2', lept_parse("\"\\u00A2\""))
-        self.assertEqual("\u20ac", lept_parse("\"\\u20AC\""))
-        self.assertEqual(b"\xF0\x9D\x84\x9E".decode('utf8'), lept_parse("\"\\uD834\\uDD1E\""))
+        self.assertEqual("", parse("\"\""))
+        self.assertEqual("Hello", parse("\"Hello\""))
+        self.assertEqual("Hello\nWorld", parse("\"Hello\\nWorld\""))
+        self.assertEqual("\" \\ / \b \f \n \r \t", parse("\"\\\" \\\\ \\/ \\b \\f \\n \\r \\t\""))
+        self.assertEqual("\\\\", parse("\"\\\\\\\\\""))
+        self.assertEqual("Hello\0World", parse("\"Hello\\u0000World\""))
+        self.assertEqual("\x24", parse("\"\\u0024\""))
+        self.assertEqual('\u00a2', parse("\"\\u00A2\""))
+        self.assertEqual("\u20ac", parse("\"\\u20AC\""))
+        self.assertEqual(b"\xF0\x9D\x84\x9E".decode('utf8'), parse("\"\\uD834\\uDD1E\""))
 
     def test_parse_invalid_string_char(self):
         self.exception("\"\x01\"", "lept parse invalid string char")
@@ -124,9 +124,9 @@ class LeptJsonTest(unittest.TestCase):
         self.exception("\"\\uD800\\uE000\"", "lept parse invalid unicode surrogate")
 
     def test_parse_array(self):
-        self.assertEqual([], lept_parse("[ ]"))
-        self.assertEqual([None, False, True, 123.0, 'abc'], lept_parse("[ null , false , true, 123, \"abc\"]"))
-        self.assertEqual([[], [0], [0, 1], [0, 1, 2]], lept_parse("[ [ ] , [ 0 ] , [ 0 , 1 ] , [ 0 , 1 , 2 ] ] "))
+        self.assertEqual([], parse("[ ]"))
+        self.assertEqual([None, False, True, 123.0, 'abc'], parse("[ null , false , true, 123, \"abc\"]"))
+        self.assertEqual([[], [0], [0, 1], [0, 1, 2]], parse("[ [ ] , [ 0 ] , [ 0 , 1 ] , [ 0 , 1 , 2 ] ] "))
 
     def test_parse_miss_comma_or_square_bracket(self):
         self.exception("[1", "lept parse miss comma or square bracket")
@@ -139,7 +139,7 @@ class LeptJsonTest(unittest.TestCase):
     def test_parse_object(self):
         self.assertEqual(
             {"n": None, "f": False, "t": True, "i": 123.0, "s": "abc", "a": [1, 2, 3], "o": {"1": 1, "2": 2, "3": 3}},
-            lept_parse(
+            parse(
                 # self.assertEqual({'n': None}, lept_parse(
                 " { "
                 "\"n\" : null, "
@@ -216,8 +216,8 @@ class LeptJsonTest(unittest.TestCase):
 
     def exception(self, json_string, msg):
         with self.assertRaises(_LeptJsonParseError) as context:
-            lept_parse(json_string)
+            parse(json_string)
         self.assertEqual(context.exception.msg, msg)
 
     def roundtrip(self, json_string):
-        self.assertEqual(lept_stringify(lept_parse(json_string)), json_string)
+        self.assertEqual(stringify(parse(json_string)), json_string)

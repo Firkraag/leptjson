@@ -6,9 +6,8 @@ JsonBasicType = Union[str, float, Dict, List, None, bool]
 POSITIVE_INTEGERS_SET = set('123456789')
 NONNEGATIVE_INTEGERS_SET = set('0123456789')
 JSON_SPACE_CHARACTERS_SET = set(' \t\n\r')
-
-
-# mapping = {'"': '"', '\\': '\\', '/': '/', 'b': '\b', 'f': '\f', 'n': '\n', 'r': '\r', 't': '\t'}
+ESCAPE_CHARACTER_MAPPING = {'"': '"', '\\': '\\', '/': '/', 'b': '\b', 'f': '\f', 'n': '\n',
+                            'r': '\r', 't': '\t'}
 
 
 class _LeptJsonParseError(Exception):
@@ -28,17 +27,17 @@ class String:
             return ''
 
 
-def lept_parse(json_string: str) -> JsonBasicType:
+def parse(json_string: str) -> JsonBasicType:
     json_string = String(json_string)
-    current_index = _lept_parse_whitespace(json_string, 0)
-    result, current_index = _lept_parse_value(json_string, current_index)
-    current_index = _lept_parse_whitespace(json_string, current_index)
+    current_index = _parse_whitespace(json_string, 0)
+    result, current_index = _parse_value(json_string, current_index)
+    current_index = _parse_whitespace(json_string, current_index)
     if json_string[current_index] == '':
         return result
     raise _LeptJsonParseError("lept parse root not singular")
 
 
-def lept_stringify(obj: JsonBasicType) -> str:
+def stringify(obj: JsonBasicType) -> str:
     if obj is None:
         return "null"
     if obj is False:
@@ -78,7 +77,7 @@ def lept_stringify(obj: JsonBasicType) -> str:
             return '[]'
         buffer = ['[']
         for element in obj:
-            buffer.append(lept_stringify(element))
+            buffer.append(stringify(element))
             buffer.append(',')
         buffer[-1] = ']'
         return ''.join(buffer)
@@ -87,44 +86,44 @@ def lept_stringify(obj: JsonBasicType) -> str:
             return '{}'
         buffer = ['{']
         for key, value in obj.items():
-            buffer.append(lept_stringify(key))
+            buffer.append(stringify(key))
             buffer.append(':')
-            buffer.append(lept_stringify(value))
+            buffer.append(stringify(value))
             buffer.append(',')
         buffer[-1] = '}'
         return ''.join(buffer)
 
 
-def _lept_parse_whitespace(json_string: String, current_index: int) -> int:
+def _parse_whitespace(json_string: String, current_index: int) -> int:
     while json_string[current_index] in JSON_SPACE_CHARACTERS_SET:
         current_index += 1
     return current_index
 
 
-def _lept_parse_value(json_string: String, current_index: int) -> Tuple[JsonBasicType, int]:
+def _parse_value(json_string: String, current_index: int) -> Tuple[JsonBasicType, int]:
     element = json_string[current_index]
     if element == '':
         raise _LeptJsonParseError("lept parse expect value")
     if element == 'n':
-        return _lept_parse_literal(json_string, current_index, "null", None)
+        return _parse_literal(json_string, current_index, "null", None)
     if element == 't':
-        return _lept_parse_literal(json_string, current_index, "true", True)
+        return _parse_literal(json_string, current_index, "true", True)
     if element == 'f':
-        return _lept_parse_literal(json_string, current_index, "false", False)
+        return _parse_literal(json_string, current_index, "false", False)
     if element == '"':
-        return _lept_parse_string(json_string, current_index)
+        return _parse_string(json_string, current_index)
     if element == '[':
-        return _lept_parse_array(json_string, current_index)
+        return _parse_array(json_string, current_index)
     if element == '{':
-        return _lept_parse_object(json_string, current_index)
-    return _lept_parse_number(json_string, current_index)
+        return _parse_object(json_string, current_index)
+    return _parse_number(json_string, current_index)
 
 
-def _lept_parse_object(json_string: String, current_index: int) \
+def _parse_object(json_string: String, current_index: int) \
         -> Tuple[Dict[str, JsonBasicType], int]:
     result: Dict[str, JsonBasicType] = {}
     current_index += 1
-    current_index = _lept_parse_whitespace(json_string, current_index)
+    current_index = _parse_whitespace(json_string, current_index)
     if json_string[current_index] == '':
         raise _LeptJsonParseError("lept parse miss key")
     if json_string[current_index] == '}':
@@ -133,40 +132,41 @@ def _lept_parse_object(json_string: String, current_index: int) \
         if json_string[current_index] != '"':
             raise _LeptJsonParseError("lept parse miss key")
         try:
-            key, current_index = _lept_parse_string(json_string, current_index)
+            key, current_index = _parse_string(json_string, current_index)
         except _LeptJsonParseError:
             raise _LeptJsonParseError("lept parse miss key")
-        current_index = _lept_parse_whitespace(json_string, current_index)
+        current_index = _parse_whitespace(json_string, current_index)
         if json_string[current_index] != ':':
             raise _LeptJsonParseError("lept parse miss colon")
-        current_index = _lept_parse_whitespace(json_string, current_index + 1)
-        result[key], current_index = _lept_parse_value(json_string, current_index)
-        current_index = _lept_parse_whitespace(json_string, current_index)
+        current_index = _parse_whitespace(json_string, current_index + 1)
+        value, current_index = _parse_value(json_string, current_index)
+        result[key] = value
+        current_index = _parse_whitespace(json_string, current_index)
         if json_string[current_index] != ',' and json_string[current_index] != '}':
             raise _LeptJsonParseError("lept parse miss comma or curly bracket")
         if json_string[current_index] == '}':
             return result, current_index + 1
-        current_index = _lept_parse_whitespace(json_string, current_index + 1)
+        current_index = _parse_whitespace(json_string, current_index + 1)
     raise _LeptJsonParseError("lept parse miss key")
 
 
-def _lept_parse_array(json_string: String, current_index: int) \
+def _parse_array(json_string: String, current_index: int) \
         -> Tuple[List[JsonBasicType], int]:
     array: List[JsonBasicType] = []
     current_index += 1
-    current_index = _lept_parse_whitespace(json_string, current_index)
+    current_index = _parse_whitespace(json_string, current_index)
     if json_string[current_index] == ']':
         return array, current_index + 1
     while json_string[current_index] != '':
-        value, current_index = _lept_parse_value(json_string, current_index)
+        value, current_index = _parse_value(json_string, current_index)
         array.append(value)
-        current_index = _lept_parse_whitespace(json_string, current_index)
+        current_index = _parse_whitespace(json_string, current_index)
         if json_string[current_index] == '':
             raise _LeptJsonParseError("lept parse miss comma or square bracket")
         if json_string[current_index] == ']':
             return array, current_index + 1
         if json_string[current_index] == ',':
-            current_index = _lept_parse_whitespace(json_string, current_index + 1)
+            current_index = _parse_whitespace(json_string, current_index + 1)
         else:
             raise _LeptJsonParseError("lept parse miss comma or square bracket")
     raise _LeptJsonParseError("lept parse miss comma or square bracket")
@@ -178,7 +178,7 @@ def _parse_surrogate_pair(json_string: String, current_index: int, high_surrogat
     if json_string[current_index] != '\\' or json_string[current_index + 1] != 'u':
         raise _LeptJsonParseError("lept parse invalid unicode surrogate")
     current_index += 2
-    low_surrogate = _lept_parse_hex4(json_string, current_index)
+    low_surrogate = _parse_hex4(json_string, current_index)
 
     if 0xdfff >= low_surrogate >= 0xdc00:
         return 0x10000 + (high_surrogate - 0xd800) * 0x400 + (low_surrogate - 0xdc00), \
@@ -186,43 +186,24 @@ def _parse_surrogate_pair(json_string: String, current_index: int, high_surrogat
     raise _LeptJsonParseError("lept parse invalid unicode surrogate")
 
 
-def _lept_parse_escape_character(json_string: String, current_index: int) -> Tuple[str, int]:
+def _parse_escape_character(json_string: String, current_index: int) -> Tuple[str, int]:
     current_index += 1
     current_element = json_string[current_index]
     if current_element == '':
         raise _LeptJsonParseError("lept parse invalid string escape")
-
-    if current_element == '"':
-        escape_character = '"'
-    elif current_element == '\\':
-        escape_character = '\\'
-    elif current_element == '/':
-        escape_character = '/'
-    elif current_element == 'b':
-        escape_character = '\b'
-    elif current_element == 'f':
-        escape_character = '\f'
-    elif current_element == 'n':
-        escape_character = '\n'
-    elif current_element == 'r':
-        escape_character = '\r'
-    elif current_element == 't':
-        escape_character = '\t'
-    elif current_element == 'u':
-        code_point = _lept_parse_hex4(json_string, current_index + 1)
+    if current_element == 'u':
+        code_point = _parse_hex4(json_string, current_index + 1)
         current_index += 5
         if 0xdbff >= code_point >= 0xd800:
             code_point, current_index = \
                 _parse_surrogate_pair(json_string, current_index, code_point)
-
         return chr(code_point), current_index
+    if current_element in ESCAPE_CHARACTER_MAPPING:
+        return ESCAPE_CHARACTER_MAPPING[current_element], current_index + 1
+    raise _LeptJsonParseError("lept parse invalid string escape")
 
-    else:
-        raise _LeptJsonParseError("lept parse invalid string escape")
-    return escape_character, current_index + 1
 
-
-def _lept_parse_string(json_string: String, current_index: int) -> Tuple[str, int]:
+def _parse_string(json_string: String, current_index: int) -> Tuple[str, int]:
     current_index += 1
     buffer: List[str] = []
     while (current_element := json_string[current_index]) != '"':
@@ -233,14 +214,14 @@ def _lept_parse_string(json_string: String, current_index: int) -> Tuple[str, in
             current_index += 1
         elif current_element == '\\':
             escape_character, current_index = \
-                _lept_parse_escape_character(json_string, current_index)
+                _parse_escape_character(json_string, current_index)
             buffer.append(escape_character)
         elif ord(current_element) < 32:
             raise _LeptJsonParseError("lept parse invalid string char")
     return ''.join(buffer), current_index + 1
 
 
-def _lept_parse_hex4(json_string: String, current_index: int) -> int:
+def _parse_hex4(json_string: String, current_index: int) -> int:
     return _str2hex(json_string, current_index, 4)
 
 
@@ -264,22 +245,22 @@ def _str2hex(json_string: String, current_index: int, hex_length: int) -> int:
     return summation
 
 
-def _lept_parse_literal(json_string: String, current_index: int, literal: str,
-                        return_value: Optional[bool]) -> Tuple[Optional[bool], int]:
+def _parse_literal(json_string: String, current_index: int, literal: str,
+                   return_value: Optional[bool]) -> Tuple[Optional[bool], int]:
     if json_string[current_index:current_index + (length := len(literal))] == literal:
         return return_value, current_index + length
     raise _LeptJsonParseError("lept parse invalid value")
 
 
-def _lept_parse_number(json_string: String, current_index: int) -> Tuple[float, int]:
-    end_index = _parse_number(json_string, current_index)
+def _parse_number(json_string: String, current_index: int) -> Tuple[float, int]:
+    end_index = _parse_number_aux(json_string, current_index)
     result = float(json_string[current_index:end_index])
     if result == float("Inf") or result == float("-Inf"):
         raise _LeptJsonParseError("lept parse number too big")
     return result, end_index
 
 
-def _parse_number(json_string: String, current_index: int) -> int:
+def _parse_number_aux(json_string: String, current_index: int) -> int:
     current_index = _parse_negative(json_string, current_index)
     current_index = _parse_int(json_string, current_index)
     current_index = _parse_frac(json_string, current_index)
@@ -333,10 +314,8 @@ def _parse_exp(json_string: String, current_index: int) -> int:
     raise _LeptJsonParseError("lept parse invalid value")
 
 
-loads = lept_parse
-dumps = lept_stringify
 if __name__ == '__main__':
     with open('data/twitter.json', encoding='utf-8') as f:
         large_obj_data = f.read()
         for _ in range(10):
-            lept_parse(large_obj_data)
+            parse(large_obj_data)

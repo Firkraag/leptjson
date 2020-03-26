@@ -1,4 +1,4 @@
 #!/usr/bin/env python
 # encoding: utf-8
-from .leptjson import lept_parse as deserialize
+from .leptjson import parse as deserialize
 
