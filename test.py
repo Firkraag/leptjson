@@ -2,7 +2,7 @@
 # coding=utf-8
 
 import unittest
-from leptjson import lept_parse, LeptJsonParseError, lept_stringify
+from leptjson import lept_parse, _LeptJsonParseError, lept_stringify
 
 
 class LeptJsonTest(unittest.TestCase):
@@ -215,7 +215,7 @@ class LeptJsonTest(unittest.TestCase):
         self.roundtrip("true")
 
     def exception(self, json_string, msg):
-        with self.assertRaises(LeptJsonParseError) as context:
+        with self.assertRaises(_LeptJsonParseError) as context:
             lept_parse(json_string)
         self.assertEqual(context.exception.msg, msg)
 
