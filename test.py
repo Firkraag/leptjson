@@ -2,7 +2,7 @@
 # coding=utf-8
 
 import unittest
-from leptjson import parse, _LeptJsonParseError, stringify
+from leptjson import parse, LeptJsonParseError, stringify
 
 
 class LeptJsonTest(unittest.TestCase):
@@ -83,6 +83,7 @@ class LeptJsonTest(unittest.TestCase):
         self.assertEqual('\u00a2', parse("\"\\u00A2\""))
         self.assertEqual("\u20ac", parse("\"\\u20AC\""))
         self.assertEqual(b"\xF0\x9D\x84\x9E".decode('utf8'), parse("\"\\uD834\\uDD1E\""))
+        self.assertEqual("\x09", parse("\"\\u0009\""))
 
     def test_parse_invalid_string_char(self):
         self.exception("\"\x01\"", "lept parse invalid string char")
@@ -199,6 +200,7 @@ class LeptJsonTest(unittest.TestCase):
         self.roundtrip("\"Hello\\nWorld\"")
         self.roundtrip("\"\\\" \\\\ / \\b \\f \\n \\r \\t\"")
         self.roundtrip("\"Hello\\u000f\\u0000World\"")
+        # self.roundtrip("\"\\u0009\"")
 
     def test_stringify_array(self):
         self.roundtrip("[]")
@@ -215,7 +217,7 @@ class LeptJsonTest(unittest.TestCase):
         self.roundtrip("true")
 
     def exception(self, json_string, msg):
-        with self.assertRaises(_LeptJsonParseError) as context:
+        with self.assertRaises(LeptJsonParseError) as context:
             parse(json_string)
         self.assertEqual(context.exception.msg, msg)
 
