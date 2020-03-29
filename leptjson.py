@@ -332,8 +332,8 @@ def _str2hex(json_string: _String, current_index: int, hex_length: int) -> int:
 
 def _parse_literal(json_string: _String, current_index: int, literal: str,
                    return_value: Optional[bool]) -> Tuple[Optional[bool], int]:
-    if json_string[current_index:current_index + (length := len(literal))] == literal:
-        return return_value, current_index + length
+    if json_string[current_index:current_index + len(literal)] == literal:
+        return return_value, current_index + len(literal)
     raise LeptJsonParseError("lept parse invalid value")
 
 
