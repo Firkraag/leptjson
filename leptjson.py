@@ -1,4 +1,4 @@
-#!/usr/local/bin/env python3.8
+#!/usr/bin/env python3
 # encoding: utf-8
 """
 Implementation of json
@@ -403,4 +403,4 @@ if __name__ == '__main__':
     with open('data/twitter.json', encoding='utf-8') as f:
         large_obj_data = f.read()
         for _ in range(10):
-            parse(large_obj_data)
+            print(parse(large_obj_data))
