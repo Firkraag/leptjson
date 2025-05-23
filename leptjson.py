@@ -5,10 +5,10 @@ Implementation of json
 JSON Standard: https://tools.ietf.org/html/rfc7159.html
 Inspired by https://zhuanlan.zhihu.com/json-tutorial
 """
-from typing import Union, Optional, Tuple, List, Dict
+from typing import Union, Optional, Any
 from string import hexdigits
 
-JsonBasicType = Union[str, float, Dict, List, None, bool]
+JsonBasicType = Union[str, float, None, bool, list['JsonBasicType'], dict[str, 'JsonBasicType']]
 POSITIVE_INTEGERS_SET = set('123456789')
 NONNEGATIVE_INTEGERS_SET = set('0123456789')
 JSON_SPACE_CHARACTERS_SET = set(' \t\n\r')
@@ -21,7 +21,7 @@ class LeptJsonParseError(Exception):
     Raised when encountering json string parsing error
     """
 
-    def __init__(self, msg):
+    def __init__(self, msg: str):
         super(LeptJsonParseError, self).__init__(msg)
         self.msg = msg
 
@@ -31,7 +31,7 @@ class LeptJsonStringifyError(Exception):
     Raised when encountering python object stringify error
     """
 
-    def __init__(self, msg):
+    def __init__(self, msg: str):
         super().__init__(msg)
         self.msg = msg
 
@@ -40,20 +40,20 @@ class _String:
     def __init__(self, string: str):
         self._string = string
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: int|slice[int, int, None]):
         try:
             return self._string[item]
         except IndexError:
             return ''
 
 
-def parse(json_string: str) -> JsonBasicType:
+def parse(string: str) -> JsonBasicType:
     """
     deserialize a json string into python object
     :param json_string:
     :return:
     """
-    json_string = _String(json_string)
+    json_string = _String(string)
     current_index = _parse_whitespace(json_string, 0)
     result, current_index = _parse_value(json_string, current_index)
     current_index = _parse_whitespace(json_string, current_index)
@@ -62,7 +62,7 @@ def parse(json_string: str) -> JsonBasicType:
     raise LeptJsonParseError("lept parse root not singular")
 
 
-def stringify(obj: Union[None, bool, int, float, str, List, Tuple, Dict]) -> str:
+def stringify(obj: Any) -> str:
     """
     serialize a python object into json string
     :param obj:
@@ -86,7 +86,7 @@ def stringify(obj: Union[None, bool, int, float, str, List, Tuple, Dict]) -> str
     raise LeptJsonStringifyError(f"Cannot stringify instance of {type(obj)}")
 
 
-def _stringify_sequence(sequence: Union[List, Tuple]) -> str:
+def _stringify_sequence(sequence: Union[list[Any], tuple[Any, ...]]) -> str:
     if len(sequence) == 0:
         return '[]'
     buffer = ['[']
@@ -100,7 +100,7 @@ def _stringify_sequence(sequence: Union[List, Tuple]) -> str:
     return ''.join(buffer)
 
 
-def _stringify_dict(obj: Dict) -> str:
+def _stringify_dict(obj: dict[Any, Any]) -> str:
     if len(obj) == 0:
         return '{}'
     buffer = ['{']
@@ -178,7 +178,7 @@ def _parse_whitespace(json_string: _String, current_index: int) -> int:
     return current_index
 
 
-def _parse_value(json_string: _String, current_index: int) -> Tuple[JsonBasicType, int]:
+def _parse_value(json_string: _String, current_index: int) -> tuple[JsonBasicType, int]:
     """
 
     :param json_string:
@@ -204,8 +204,8 @@ def _parse_value(json_string: _String, current_index: int) -> Tuple[JsonBasicTyp
 
 
 def _parse_object(json_string: _String, current_index: int) \
-        -> Tuple[Dict[str, JsonBasicType], int]:
-    result: Dict[str, JsonBasicType] = {}
+        -> tuple[dict[str, JsonBasicType], int]:
+    result: dict[str, JsonBasicType] = {}
     current_index += 1
     current_index = _parse_whitespace(json_string, current_index)
     if json_string[current_index] == '':
@@ -235,8 +235,8 @@ def _parse_object(json_string: _String, current_index: int) \
 
 
 def _parse_array(json_string: _String, current_index: int) \
-        -> Tuple[List[JsonBasicType], int]:
-    array: List[JsonBasicType] = []
+        -> tuple[list[JsonBasicType], int]:
+    array: list[JsonBasicType] = []
     current_index += 1
     current_index = _parse_whitespace(json_string, current_index)
     if json_string[current_index] == ']':
@@ -256,9 +256,9 @@ def _parse_array(json_string: _String, current_index: int) \
     raise LeptJsonParseError("lept parse miss comma or square bracket")
 
 
-def _parse_string(json_string: _String, current_index: int) -> Tuple[str, int]:
+def _parse_string(json_string: _String, current_index: int) -> tuple[str, int]:
     current_index += 1
-    buffer: List[str] = []
+    buffer: list[str] = []
     while (current_element := json_string[current_index]) != '"':
         if current_element == '':
             raise LeptJsonParseError("lept parse miss quotation mark")
@@ -274,7 +274,7 @@ def _parse_string(json_string: _String, current_index: int) -> Tuple[str, int]:
     return ''.join(buffer), current_index + 1
 
 
-def _parse_escape_character(json_string: _String, current_index: int) -> Tuple[str, int]:
+def _parse_escape_character(json_string: _String, current_index: int) -> tuple[str, int]:
     current_index += 1
     current_element = json_string[current_index]
     if current_element == '':
@@ -294,7 +294,7 @@ def _parse_escape_character(json_string: _String, current_index: int) -> Tuple[s
 
 
 def _parse_surrogate_pair(json_string: _String, current_index: int, high_surrogate: int) \
-        -> Tuple[int, int]:
+        -> tuple[int, int]:
     """
 
     :param json_string:
@@ -331,13 +331,13 @@ def _str2hex(json_string: _String, current_index: int, hex_length: int) -> int:
 
 
 def _parse_literal(json_string: _String, current_index: int, literal: str,
-                   return_value: Optional[bool]) -> Tuple[Optional[bool], int]:
+                   return_value: Optional[bool]) -> tuple[Optional[bool], int]:
     if json_string[current_index:current_index + len(literal)] == literal:
         return return_value, current_index + len(literal)
     raise LeptJsonParseError("lept parse invalid value")
 
 
-def _parse_number(json_string: _String, current_index: int) -> Tuple[float, int]:
+def _parse_number(json_string: _String, current_index: int) -> tuple[float, int]:
     end_index = _parse_number_aux(json_string, current_index)
     result = float(json_string[current_index:end_index])
     if result == float("Inf") or result == float("-Inf"):
